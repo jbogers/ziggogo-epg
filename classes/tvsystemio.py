@@ -4,6 +4,7 @@ ZiggoGo EPG
 TVSystemIo classes that handle interaction with TvHeadend or simple disk files.
 """
 
+import logging
 import requests
 import socket
 
@@ -47,7 +48,7 @@ class TVHeadendIo(TVSystemIo):
 
     def get_channel_list(self) -> List[str]:
         """Get the list of channels from TVHeadend"""
-        print("Requesting known channel list from TVHeadend...")
+        logging.info("Requesting known channel list from TVHeadend...")
         try:
             r = requests.get(
                 f"http://{self._host}:{self._port}/api/channel/list",
@@ -80,7 +81,7 @@ class TVHeadendIo(TVSystemIo):
 
     def write_xmltv(self, data: bytes):
         """Write the XMLTV EPG to TVHeadend directly"""
-        print("Writing XMLTV directly to TVHeadend...")
+        logging.info("Writing XMLTV directly to TVHeadend...")
         try:
             sock = socket.socket(socket.AF_UNIX)
             try:
@@ -106,7 +107,7 @@ class XMLTVFileIo(TVSystemIo):
 
     def get_channel_list(self) -> List[str]:
         """Get the list of channels from the channel list file"""
-        print(f"Reading known channel list from '{self._channel_list_filename}'...")
+        logging.info(f"Reading known channel list from '{self._channel_list_filename}'...")
 
         try:
             with open(self._channel_list_filename, "r") as f:
@@ -123,7 +124,7 @@ class XMLTVFileIo(TVSystemIo):
 
     def write_xmltv(self, data: bytes):
         """Write the XMLTV EPG to file"""
-        print(f"Writing XMLTV to '{self._xmltv_filename}'...")
+        logging.info(f"Writing XMLTV to '{self._xmltv_filename}'...")
 
         try:
             with open(self._xmltv_filename, "wb") as f:

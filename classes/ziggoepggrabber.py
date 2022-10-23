@@ -5,15 +5,15 @@ Main grabber class for the ZiggoGo EPG.
 """
 import datetime
 import json
+import logging
 import pytz
 import requests
 import sqlite3
-import sys
 import time
 
 from typing import Iterable, List
 
-from classes.tvsystemio import TVSystemIo, TVSystemIoException
+from classes.tvsystemio import TVSystemIo
 from classes.xmltvwriter import XMLTVWriter
 
 
@@ -127,10 +127,10 @@ class ZiggoGoEpgGrabber:
             self._grab_programmes(channel_ids=channel_ids)
             self._grab_programmedetails()
 
-            print("Cleaning up database...")
+            logging.info("Cleaning up database...")
             self._dbcur.execute("VACUUM")
         else:
-            print("Generate only: skip grabbing new EPG data")
+            logging.info("Generate only: skip grabbing new EPG data")
 
         xmltv_writer = XMLTVWriter(database_connection=self._db)
         xmltv = xmltv_writer.generate_xmltv()
@@ -180,7 +180,7 @@ class ZiggoGoEpgGrabber:
         """
         channel_matcher = ChannelMatcher(channels=self._tv_system_io.get_channel_list())
 
-        print("Getting known channels from EPG...")
+        logging.info("Getting known channels from EPG...")
         channel_list = self.get_channel_list()
 
         channelupdate = []
@@ -198,7 +198,7 @@ class ZiggoGoEpgGrabber:
         )
 
         # Purge unwanted channels
-        print("Cleaning up channels table...")
+        logging.info("Cleaning up channels table...")
         self._dbcur.execute("DELETE FROM channels WHERE last_update != ?", (self._grab_start_time,))
         self._db.commit()
 
@@ -206,7 +206,7 @@ class ZiggoGoEpgGrabber:
 
     def _grab_programmes(self, channel_ids):
         """Grab segment information and extract programmes for the given channels only"""
-        print("Getting guide overview data...")
+        logging.info("Getting guide overview data...")
 
         # Determine start point using UTC time as segment codes are in UTC
         grab_start = datetime.datetime.utcfromtimestamp(self._grab_start_time)
@@ -216,13 +216,13 @@ class ZiggoGoEpgGrabber:
         session = requests.Session()
         while segment_datetime < end_datetime:
             segment_code = segment_datetime.strftime("%Y%m%d%H%M%S")
-            print(f"  Segment: {segment_code}")
+            logging.info(f"  Segment: {segment_code}")
 
             # Expected to fail at some point
             with session.get(self._epg_segment_url.format(segment_code)) as r:
                 if r.status_code == 404:
                     # No more segment data, stop grabbing
-                    print(f"No more EPG data found at {segment_datetime}, stopping scan.")
+                    logging.info(f"No more EPG data found at {segment_datetime}, stopping scan.")
                     break
 
                 try:
@@ -234,13 +234,13 @@ class ZiggoGoEpgGrabber:
                     )
 
             if "duration" not in segmentdata or not isinstance(segmentdata["duration"], int) or segmentdata["duration"] <= 0:
-                print(f"WARNING: Segment {segment_code} duration is not properly encoded, using 6 hour interval", file=sys.stderr)
+                logging.warning(f"Segment {segment_code} duration is not properly encoded, using 6 hour interval")
                 segment_datetime += datetime.timedelta(hours=6)
             else:
                 segment_datetime += datetime.timedelta(seconds=segmentdata["duration"])
 
             if "entries" not in segmentdata:
-                print(f"WARNING: Segment {segment_code} is missing entries. Skipping.")
+                logging.warning(f"Segment {segment_code} is missing entries. Skipping.")
                 continue
 
             for entry in segmentdata["entries"]:
@@ -279,19 +279,19 @@ class ZiggoGoEpgGrabber:
             self._db.commit()
 
         # Purge old data
-        print("Cleaning up programme table...")
+        logging.info("Cleaning up programme table...")
         self._dbcur.execute("DELETE FROM programmes WHERE last_update != ?", (self._grab_start_time,))
         self._db.commit()
 
     def _grab_programmedetails(self):
         """Grab missing programme details from all programmes in the programmes table"""
         # First purge unused programme details
-        print("Cleaning up programme details table...")
+        logging.info("Cleaning up programme details table...")
         self._dbcur.execute("DELETE FROM programmedetails WHERE id NOT IN (SELECT id FROM programmes)")
         self._db.commit()
 
         # Grab missing details (using separate cursor)
-        print("Getting missing programme details...")
+        logging.info("Getting missing programme details...")
         self._dbcur.execute("SELECT p.id FROM programmes p LEFT JOIN programmedetails pd ON pd.id = p.id WHERE pd.id IS NULL")
         missing_programmes_rows = self._dbcur.fetchall()
 
@@ -312,14 +312,14 @@ class ZiggoGoEpgGrabber:
                 try:
                     programmedata = r.json()
                 except requests.exceptions.JSONDecodeError:
-                    print(f"WARNING: Programme data for '{id}' could not be read, skipping.", file=sys.stderr)
+                    logging.warning(f"Programme data for '{id}' could not be read, skipping.")
                     continue
 
                 # Add title first, as it should always exist
                 try:
                     details = {"title": programmedata["title"]}
                 except KeyError:
-                    print(f"WARNING: Programme data for '{id}' is missing title data, skipping.", file=sys.stderr)
+                    logging.warning(f"Programme data for '{id}' is missing title data, skipping.")
                     continue
 
                 # Add optional data, structuring it mostly as it will be in the XMLTV
@@ -369,11 +369,11 @@ class ZiggoGoEpgGrabber:
                 self._dbcur.executemany("INSERT INTO programmedetails (id, details) VALUES (:id, :details)", detailsupdate)
                 self._db.commit()
                 detailsupdate = []
-                print(f"   {programmecounter}/{totalcount} programmes fetched...")
+                logging.info(f"   {programmecounter}/{totalcount} programmes fetched...")
 
         if detailsupdate:
             self._dbcur.executemany("INSERT INTO programmedetails (id, details) VALUES (:id, :details)", detailsupdate)
             self._db.commit()
-            print(f"   {programmecounter}/{totalcount} programmes fetched...")
+            logging.info(f"   {programmecounter}/{totalcount} programmes fetched...")
         elif programmecounter == 0:
-            print(f"   No update of programme details needed...")
+            logging.info(f"   No update of programme details needed...")

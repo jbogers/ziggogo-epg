@@ -5,15 +5,20 @@ ZiggoGo EPG
 Grabber for the EPG hosted by Ziggo on ziggogo.tv
 """
 import argparse
+import logging
 import os.path
 import sys
 
 from classes.tvsystemio import ChannelFileIo, TVHeadendIo, TVSystemIoException, XMLTVFileIo
 from classes.ziggoepggrabber import GrabException, ZiggoGoEpgGrabber
 
+LOGGING_FORMAT = "%(asctime)s [%(levelname)8s]: %(message)s"
+
 
 def main():
     """Program main entry point"""
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=LOGGING_FORMAT)
+    logging.info("Starting ZiggoGo EPG")
 
     parser = argparse.ArgumentParser(description="ZiggoGo EPG grabber", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-n", "--scan-days", default=14, type=int, help="number of days to grab", metavar="DAYS")
@@ -101,11 +106,11 @@ def main():
     )
 
     if args.write_channel_list:
-        print(f"Writing channel list to '{args.channel_file}'.")
+        logging.info(f"Writing channel list to '{args.channel_file}'.")
         try:
             channels = grabber.get_channel_list()
         except GrabException as ex:
-            print(ex, file=sys.stderr)
+            logging.error(str(ex))
             return 1
 
         try:
@@ -121,10 +126,10 @@ def main():
         try:
             grabber.grab(generate_only=args.generate_only)
         except (GrabException, TVSystemIoException) as ex:
-            print(ex, file=sys.stderr)
+            logging.error(str(ex))
             return 1
 
-    print("Done!")
+    logging.info("Done!")
     return 0
 
 

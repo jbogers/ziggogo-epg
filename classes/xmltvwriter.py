@@ -5,6 +5,7 @@ XML TV structure writer
 """
 
 import json
+import logging
 import sqlite3
 
 from lxml import etree
@@ -31,7 +32,7 @@ class XMLTVWriter:
         :return: The XMLTV data as a string
         """
 
-        print("Generating XMLTV data...")
+        logging.info("Generating XMLTV data...")
 
         xmltv = etree.Element(
             "tv",
