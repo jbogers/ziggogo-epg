@@ -27,7 +27,7 @@ class TVSystemIo:
         raise NotImplementedError()
 
 
-class TvHeadendIo(TVSystemIo):
+class TVHeadendIo(TVSystemIo):
     """Class used to interact with TVHeadend for the EPG"""
 
     def __init__(
@@ -38,7 +38,7 @@ class TvHeadendIo(TVSystemIo):
         password="",
         xmltv_socket_path="/home/hts/.hts/tvheadend/epggrab/xmltv.sock",
     ):
-        """Initialize the TvHeadendIo class"""
+        """Initialize the TVHeadendIo class"""
         self._host = host
         self._port = port
         self._username = username
@@ -91,8 +91,56 @@ class TvHeadendIo(TVSystemIo):
 
         except OSError:
             raise TVSystemIoException(
-                f"Error writing XMLTV to '{self._xmltv_socket_path}'. Is the path correct and is TVHeadend running?"
+                f"Error writing XMLTV to '{self._xmltv_socket_path}'. Is the path correct, "
+                f"is TVHeadend running and was the XMLTV EPG grabber enabled?"
             )
 
 
-# TODO: Add direct file IO that writes to disk
+class XMLTVFileIo(TVSystemIo):
+    """Class used to interact with files on disk for the EPG"""
+
+    def __init__(self, channel_list_filename="channels.txt", xmltv_filename="ziggogo.xml"):
+        """Initialize the XMLTVFileIo class"""
+        self._channel_list_filename = channel_list_filename
+        self._xmltv_filename = xmltv_filename
+
+    def get_channel_list(self) -> List[str]:
+        """Get the list of channels from the channel list file"""
+        print(f"Reading known channel list from '{self._channel_list_filename}'...")
+
+        try:
+            with open(self._channel_list_filename, "r") as f:
+                channellist = []
+                for line in f:
+                    channel = line.strip()
+                    if channel:
+                        channellist.append(channel)
+
+        except OSError:
+            raise TVSystemIoException(f"Error reading '{self._channel_list_filename}'. Does the file exist and is it readable?")
+
+        return channellist
+
+    def write_xmltv(self, data: bytes):
+        """Write the XMLTV EPG to file"""
+        print(f"Writing XMLTV to '{self._xmltv_filename}'...")
+
+        try:
+            with open(self._xmltv_filename, "wb") as f:
+                f.write(data)
+
+        except OSError:
+            raise TVSystemIoException(f"Error writing XMLTV to '{self._xmltv_filename}'. Is the path correct and is it writable?")
+
+
+class ChannelFileIo(XMLTVFileIo):
+    """Class used to only write XMLTV file and take a manually defined cannel list"""
+
+    def __init__(self, channels: List, xmltv_filename="ziggogo.xml"):
+        """Initialize the ChannelFileIo class"""
+        self._channel_list = channels
+        self._xmltv_filename = xmltv_filename
+
+    def get_channel_list(self) -> List[str]:
+        """Get the list of channels from the channel list file"""
+        return [channel.strip() for channel in self._channel_list]

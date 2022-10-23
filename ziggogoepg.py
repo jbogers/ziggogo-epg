@@ -8,7 +8,7 @@ import argparse
 import os.path
 import sys
 
-from classes.tvsystemio import TvHeadendIo, TVSystemIoException
+from classes.tvsystemio import ChannelFileIo, TVHeadendIo, TVSystemIoException, XMLTVFileIo
 from classes.ziggoepggrabber import GrabException, ZiggoGoEpgGrabber
 
 
@@ -47,7 +47,26 @@ def main():
     file_arg_group = parser.add_argument_group(
         "file mode", description="Arguments used in file mode only (only used if -f/--file-mode has been given)"
     )
-    # TODO: Implement file mode
+    channel_group = file_arg_group.add_mutually_exclusive_group()
+    channel_group.add_argument(
+        "--channel-file", default="channels.txt", type=str, help="file containing the channel list", metavar="FILENAME"
+    )
+    channel_group.add_argument(
+        "-c",
+        "--channel",
+        action="append",
+        type=str,
+        help="name of channel to grab, can be given multiple times",
+        metavar="CHANNEL",
+        dest="channels",
+    )
+    output_file_group = file_arg_group.add_mutually_exclusive_group()
+    output_file_group.add_argument(
+        "--write-channel-list",
+        action="store_true",
+        help="if given all known channels will be written to the file given by '--channel-file', overwriting any existing file",
+    )
+    output_file_group.add_argument("--xmltv-file", default="ziggogo.xml", type=str, help="xmltv output file", metavar="FILENAME")
 
     tweak_arg_group = parser.add_argument_group("tweaks", description="Finetuning for advanced users")
     tweak_arg_group.add_argument(
@@ -56,18 +75,20 @@ def main():
     tweak_arg_group.add_argument(
         "--database-location", default=".", type=str, help="path where the cache database will be created", metavar="PATH"
     )
-    parser.add_argument("--generate-only", action="store_true", help="generate XMLTV from an existing cache database")
+    tweak_arg_group.add_argument("--generate-only", action="store_true", help="generate XMLTV from an existing cache database")
 
     args = parser.parse_args()
 
     database_file = os.path.normpath(os.path.join(args.database_location, "ziggogoepg_cache.sqlite3"))
 
     if args.file_mode:
-        print("File mode is not implemented yet", file=sys.stderr)
-        tv_system_io = None
-        exit(1)
+        if args.channels:
+            tv_system_io = ChannelFileIo(channels=args.channels, xmltv_filename=args.xmltv_file)
+        else:
+            tv_system_io = XMLTVFileIo(channel_list_filename=args.channel_file, xmltv_filename=args.xmltv_file)
+
     else:
-        tv_system_io = TvHeadendIo(
+        tv_system_io = TVHeadendIo(
             host=args.tvh_host,
             port=args.tvh_port,
             username=args.tvh_username,
@@ -79,12 +100,34 @@ def main():
         tv_system_io=tv_system_io, scan_days=args.scan_days, timezone=args.timezone, database_file=database_file
     )
 
-    try:
-        grabber.grab(generate_only=args.generate_only)
-    except (GrabException, TVSystemIoException) as ex:
-        print(ex, file=sys.stderr)
+    if args.write_channel_list:
+        print(f"Writing channel list to '{args.channel_file}'.")
+        try:
+            channels = grabber.get_channel_list()
+        except GrabException as ex:
+            print(ex, file=sys.stderr)
+            return 1
+
+        try:
+            with open(args.channel_file, "w") as f:
+                for channel in channels:
+                    f.write(f"{channel['name']}\n")
+        except OSError:
+            raise TVSystemIoException(
+                f"Error writing channel list to '{args.channel_file}'. Is the path correct and is it writable?"
+            )
+
+    else:
+        try:
+            grabber.grab(generate_only=args.generate_only)
+        except (GrabException, TVSystemIoException) as ex:
+            print(ex, file=sys.stderr)
+            return 1
+
+    print("Done!")
+    return 0
 
 
 if __name__ == "__main__":
     """Command line entry point"""
-    main()
+    exit(main())

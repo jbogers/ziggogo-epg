@@ -1,7 +1,9 @@
-# Ingore sqlite cache
+# Ignore sqlite cache and default generated files
+channels.txt
+ziggogo.xml
 ziggogoepg_cache.sqlite3
 
-# Below rules are taken from: https://github.com/github/gitignore/blob/main/Python.gitignore
+# Rest of file is taken from: https://github.com/github/gitignore/blob/main/Python.gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

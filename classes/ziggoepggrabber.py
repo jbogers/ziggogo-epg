@@ -31,7 +31,7 @@ class ChannelMatcher:
         for channel in channels:
             channel_id = channel.lower().strip()
             if channel_id.endswith(" hd"):
-                channel_id = channel[:-3].strip()
+                channel_id = channel_id[:-3].strip()
             self._known_channels[channel_id] = channel
 
     def is_known(self, channel: str) -> bool:
@@ -137,15 +137,13 @@ class ZiggoGoEpgGrabber:
 
         self._tv_system_io.write_xmltv(data=xmltv)
 
-    def _grab_channels(self) -> List[str]:
+    def get_channel_list(self) -> List:
         """
-        Get updated channel list and check if they are requested
+        Get the channel list from the EPG server
 
-        :return: A list with all found channel id's
+        :return: A list of channels as dictionaries, containing the keys: id, name, logo
         """
-        channel_matcher = ChannelMatcher(channels=self._tv_system_io.get_channel_list())
-
-        print("Getting known channels from EPG...")
+        channel_list = []
         with requests.get(self._epg_channel_list_url) as r:
             try:
                 channeldata = r.json()
@@ -155,34 +153,51 @@ class ZiggoGoEpgGrabber:
                     f"The response text was:\n{r.text}"
                 )
 
-        channelupdate = []
-        for channel in channeldata:
-            try:
-                if not channel_matcher.is_known(channel["name"]):
+            for channel in channeldata:
+                try:
+                    logo = None
+                    if "logo" in channel and "focused" in channel["logo"]:
+                        logo = channel["logo"]["focused"]
+
+                    channel_list.append(
+                        {
+                            "id": channel["id"],
+                            "name": channel["name"],
+                            "logo": logo,
+                        }
+                    )
+                except KeyError:
+                    # Required info not present for channel, skip
                     continue
 
-                logo = None
-                if "logo" in channel and "focused" in channel["logo"]:
-                    logo = channel["logo"]["focused"]
+        return channel_list
 
-                channelupdate.append(
-                    {
-                        "id": channel["id"],
-                        "last_update": self._grab_start_time,
-                        "name": channel["name"],
-                        "logo": logo,
-                    }
-                )
-            except KeyError:
-                # Required info not present for channel, skip
+    def _grab_channels(self) -> List[str]:
+        """
+        Get updated channel list and check if they are requested
+
+        :return: A list with all found channel id's
+        """
+        channel_matcher = ChannelMatcher(channels=self._tv_system_io.get_channel_list())
+
+        print("Getting known channels from EPG...")
+        channel_list = self.get_channel_list()
+
+        channelupdate = []
+        for channel in channel_list:
+            if not channel_matcher.is_known(channel["name"]):
                 continue
 
-        # Add channels to database, purge unused channels and commit
+            channel["last_update"] = self._grab_start_time
+            channelupdate.append(channel)
+
+        # Add filtered channels to database
         self._dbcur.executemany(
             "INSERT OR REPLACE INTO channels (id, last_update, name, logo) VALUES (:id, :last_update, :name, :logo)",
             channelupdate,
         )
 
+        # Purge unwanted channels
         print("Cleaning up channels table...")
         self._dbcur.execute("DELETE FROM channels WHERE last_update != ?", (self._grab_start_time,))
         self._db.commit()
