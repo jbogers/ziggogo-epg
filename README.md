@@ -6,21 +6,33 @@ This script is optimized for use with TvHeadend, but can also be used in standal
 
 ## TvHeadend mode
 
-Documentation to be added. In this mode, TvHeadend will be asked to provide a list of known TV
-channels. The script will then try match these up to the ZiggoGo EPG and only grab data for these
-channels.
+Documentation to be added. In this mode, TvHeadend will be asked to provide a list of known TV channels. The script will then try
+match these up to the ZiggoGo EPG and only grab data for these channels.
 
 The XMLTV file is automatically send back to TvHeadend.
 
 ## Standalone mode
 
-Documentation to be added. In this mode, the configuration file is used to indicate what TV channels
-the EPG should be grabbed for. The XMLTV file will be output to disk.
+Documentation to be added. In this mode, the configuration file is used to indicate what TV channels the EPG should be grabbed
+for. The XMLTV file will be output to disk.
+
+## Requirements
+
+Python 3.6+ is required to run this script. In addition, some external Pyton packages are used. These are listed in the
+`requirements.txt` file. You can easily install these packages using the following command:
+```shell
+pip install -r requirements.txt
+```
+
+## Running
+
+```shell
+./ziggogoepg.py --help
+```
 
 ## Acknowledgments
 
-Inspiration for the script has been taken from https://github.com/beralt/horepg. While all code is
-new, some operational ideas (like automatic channel matching with TvHeaded) came from this project.
+Inspiration for the script has been taken from https://github.com/beralt/horepg. While all code is new, some operational ideas
+(like automatic channel matching with TvHeaded) came from this project.
 
-Thank you [Beralt](https://github.com/beralt) for your hard work on
-[horepg](https://github.com/beralt/horepg)!
+Thank you [Beralt](https://github.com/beralt) for your hard work on [horepg](https://github.com/beralt/horepg)!

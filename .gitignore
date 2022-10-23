@@ -1,4 +1,7 @@
-# Taken from: https://github.com/github/gitignore/blob/main/Python.gitignore
+# Ingore sqlite cache
+ziggogoepg_cache.sqlite3
+
+# Below rules are taken from: https://github.com/github/gitignore/blob/main/Python.gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
