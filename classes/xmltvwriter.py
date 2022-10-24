@@ -111,18 +111,25 @@ class XMLTVWriter:
 
                     if "episode" in details:
                         season = ""
+                        ziggo_internal_id = False
                         try:
                             season = int(details["episode"]["season"]) - 1
+                            if season >= 99999:
+                                # Fake season number used in ZiggoGo that should never be displayed
+                                ziggo_internal_id = True
                         except (KeyError, ValueError):
                             # No season value or not an integer
                             pass
                         episode = ""
                         try:
                             episode = int(details["episode"]["episode"]) - 1
+                            if episode >= 9999999:
+                                # Fake episode number used in ZiggoGo that should never be displayed
+                                ziggo_internal_id = True
                         except (KeyError, ValueError):
                             # No season value or not an integer
                             pass
-                        if season != "" or episode != "":
+                        if not ziggo_internal_id and (season != "" or episode != ""):
                             etree.SubElement(
                                 programme, "episode-num", attrib={"system": "xmltv_ns"}
                             ).text = f"{season}.{episode}."

@@ -1,6 +1,6 @@
 # ZiggoGo EPG
 
-This script grabs EPG data from the ZiggoGo TV service and formats it into XMLTV format. This script is optimized for use with
+This script grabs EPG data from the ZiggoGo TV service and formats it into XMLTV format. This script is designed for use with
 TVHeadend, but can also be used in standalone mode.
 
 ZiggoGo EPG optimizes grabbing on TV information by using a cache database (implemented using SQLite). By reusing this cache
@@ -86,7 +86,8 @@ The following options are tweaks that can be used by advanced users:
 - `--generate-only`: Great for testing the export of the XMLTV data. No contact is made with the ZiggoGo servers, the XMLTV
   generation is done fully from the existing `ziggoepg_cache.sqlite` file. Any useful application of this mode requires ZiggoGo
   EPG to have run in a normal mode at least once before. Note that this option is ignored if the `--write-channel-list` option
-  is used.
+  is used. Note that the `--channel-file`, `-c` or changing available channels in TVHeadand has no effect on the output of this
+  option (these options control updating of the `ziggoepg_cache.sqlite` file only).
 
 ## Acknowledgments
 
