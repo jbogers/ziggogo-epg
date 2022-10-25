@@ -10,6 +10,8 @@ import sqlite3
 
 from lxml import etree
 
+from classes.contentdescriptor import ContentDescriptorTranslator
+
 
 class XMLTVWriter:
     """Write XMLTV data from database"""
@@ -22,6 +24,7 @@ class XMLTVWriter:
         """
         self._db = database_connection
         self._dbcur = self._db.cursor()
+        self._cdtrans = ContentDescriptorTranslator()
 
         # NL is hardcoded as it is the only language ZiggoGo provides.
         self._lang = "nl"
@@ -102,7 +105,12 @@ class XMLTVWriter:
                     etree.SubElement(programme, "date").text = details["date"]
 
                 if "categories" in details:
-                    # TODO: Offer translation option that adds DVB-EPG compatible types
+                    # TODO: Make adding the DVB category optional
+                    # Add DVB category as first entry
+                    dvb_category = self._cdtrans.get_dvb_category(program_name=row["title"], categories=details["categories"])
+                    if dvb_category is not None:
+                        etree.SubElement(programme, "category", attrib={"lang": self._lang}).text = dvb_category
+
                     for category in details["categories"]:
                         etree.SubElement(programme, "category", attrib={"lang": self._lang}).text = category
 
