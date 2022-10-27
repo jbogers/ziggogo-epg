@@ -98,45 +98,43 @@ class XMLTVWriter:
                         for producers in details["credits"]["producers"]:
                             etree.SubElement(credits, "producer").text = producers
 
-                    if "date" in details:
-                        etree.SubElement(programme, "date").text = details["date"]
+                if "date" in details:
+                    etree.SubElement(programme, "date").text = details["date"]
 
-                    if "categories" in details:
-                        # TODO: Offer translation option that adds DVB-EPG compatible types
-                        for category in details["categories"]:
-                            etree.SubElement(programme, "category", attrib={"lang": self._lang}).text = category
+                if "categories" in details:
+                    # TODO: Offer translation option that adds DVB-EPG compatible types
+                    for category in details["categories"]:
+                        etree.SubElement(programme, "category", attrib={"lang": self._lang}).text = category
 
-                    if "country" in details:
-                        etree.SubElement(programme, "country").text = details["country"]
+                if "country" in details:
+                    etree.SubElement(programme, "country").text = details["country"]
 
-                    if "episode" in details:
-                        season = ""
-                        ziggo_internal_id = False
-                        try:
-                            season = int(details["episode"]["season"]) - 1
-                            if season >= 99999:
-                                # Fake season number used in ZiggoGo that should never be displayed
-                                ziggo_internal_id = True
-                        except (KeyError, ValueError):
-                            # No season value or not an integer
-                            pass
-                        episode = ""
-                        try:
-                            episode = int(details["episode"]["episode"]) - 1
-                            if episode >= 9999999:
-                                # Fake episode number used in ZiggoGo that should never be displayed
-                                ziggo_internal_id = True
-                        except (KeyError, ValueError):
-                            # No season value or not an integer
-                            pass
-                        if not ziggo_internal_id and (season != "" or episode != ""):
-                            etree.SubElement(
-                                programme, "episode-num", attrib={"system": "xmltv_ns"}
-                            ).text = f"{season}.{episode}."
+                if "episode" in details:
+                    season = ""
+                    ziggo_internal_id = False
+                    try:
+                        season = int(details["episode"]["season"]) - 1
+                        if season >= 99999:
+                            # Fake season number used in ZiggoGo that should never be displayed
+                            ziggo_internal_id = True
+                    except (KeyError, ValueError):
+                        # No season value or not an integer
+                        pass
+                    episode = ""
+                    try:
+                        episode = int(details["episode"]["episode"]) - 1
+                        if episode >= 9999999:
+                            # Fake episode number used in ZiggoGo that should never be displayed
+                            ziggo_internal_id = True
+                    except (KeyError, ValueError):
+                        # No season value or not an integer
+                        pass
+                    if not ziggo_internal_id and (season != "" or episode != ""):
+                        etree.SubElement(programme, "episode-num", attrib={"system": "xmltv_ns"}).text = f"{season}.{episode}."
 
-                    if "rating" in details:
-                        rating = etree.SubElement(programme, "rating", attrib={"system": "Kijkwijzer"})
-                        etree.SubElement(rating, "value").text = details["rating"]
+                if "rating" in details:
+                    rating = etree.SubElement(programme, "rating", attrib={"system": "Kijkwijzer"})
+                    etree.SubElement(rating, "value").text = details["rating"]
 
     def __del__(self):
         """Cleanup"""
