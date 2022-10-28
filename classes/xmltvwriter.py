@@ -106,12 +106,12 @@ class XMLTVWriter:
 
                 if "categories" in details:
                     # TODO: Make adding the DVB category optional
-                    # Add DVB category as first entry
-                    dvb_category = self._cdtrans.get_dvb_category(program_name=row["title"], categories=details["categories"])
-                    if dvb_category is not None:
-                        etree.SubElement(programme, "category", attrib={"lang": self._lang}).text = dvb_category
+                    categories = self._cdtrans.get_dvb_categories(program_name=row["title"], categories=details["categories"])
+                    if not categories:
+                        # No mapping results, use content as-is
+                        categories = details["categories"]
 
-                    for category in details["categories"]:
+                    for category in categories:
                         etree.SubElement(programme, "category", attrib={"lang": self._lang}).text = category
 
                 if "country" in details:
