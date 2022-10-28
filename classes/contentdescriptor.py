@@ -9,9 +9,16 @@ https://www.etsi.org/deliver/etsi_en/300400_300499/300468/01.11.01_60/en_300468v
 import logging
 
 from collections import namedtuple
-from typing import List, Optional
+from enum import Enum
+from typing import List
 
-DescriptorInfo = namedtuple("DescriptorInfo", ["category_name", "group_name", "weight"])
+DescriptorInfo = namedtuple("DescriptorInfo", ["category_name", "group_name", "mapping_type"])
+
+
+class MappingType(Enum):
+    DIRECT = 1
+    GROUP = 2
+    ONLY = 3
 
 
 class ContentDescriptorTranslator:
@@ -20,187 +27,184 @@ class ContentDescriptorTranslator:
     By adding ETSI DVB standard categories to XMLTV, most TV software can make a proper categorisation of the content.
     """
 
-    # We want a content map that for each known Ziggo keyword gives an ETSI category, but also adds a 'weight' to these.
-    # Ideally we write down each category with matching keywords and their weights, then translate this to a better lookup table
-
-    # ETSI lookup map where for each category the known Ziggo keywords are mapped with a weight. The higher the weight value,
-    # the more 'important' the mapping is. These can be used to make certain categories and keywords be more likely to be chosen.
-    # The end result is a single or limited set of categories to be added to the XMLTV file. Weights used range from 1 to 101.
+    # ETSI lookup map where for each category the known Ziggo keywords are mapped with a 'suggested' mapping type. These are:
+    # - DIRECT: Simple map to the keyword, always applied
+    # - GROUP: If there are no other direct keywords in the same group, this is applied
+    # - ONLY: Only used if no other keywords of any higher grade were mapped in any group
+    #
     # NOTE: Any deviations from the ETSI list are due to the TVHeadend source deviating from that list.
-    # IMPORTANT: Weights used in this list are very subjectively chosen and values are selected to give as much unique weights as
-    # possible while avoiding collisions. Weight does _not_ indicate the importance of a subject, only how much it says about
-    # the content of the program _and_ how much it applies to the ETSI DVB list. Certain categories simply have no real mapping
-    # onto the ETSI list and thus get a very low weight, in the hope that a more (subjectively) appropriate category might have
-    # a better deciding weight.
+    # IMPORTANT: Mappings used in this list are very subjectively chosen and values are selected to prevent strange combinations
+    # due to some Ziggo Go categories being dependent on interpretation. For example, 'misdaad' could apply to a current
+    # affairs program about crime (current affairs), or it could apply to a crime movie (fiction).
+
     etsi_map = {
         "Movie/Drama": {  # 0x01
             "movie/drama": {  # (general)
-                "actie": 1,
-                "drama": 10,
-                "dramaseries": 11,
-                "film": 20,
-                "miniseries": 2,
-                "misdaaddrama": 3,
-                "mysterie": 2,
+                "actie": MappingType.GROUP,
+                "drama": MappingType.DIRECT,
+                "dramaseries": MappingType.DIRECT,
+                "film": MappingType.DIRECT,
+                "miniseries": MappingType.GROUP,
+                "misdaaddrama": MappingType.DIRECT,
             },
             "detective/thriller": {
-                "thriller": 45,
+                "thriller": MappingType.DIRECT,
+                "mysterie": MappingType.DIRECT,
             },
             "adventure/western/war": {
-                "avontuur": 10,
-                "oorlog": 10,
-                "western": 50,
+                "avontuur": MappingType.DIRECT,
+                "oorlog": MappingType.GROUP,
+                "western": MappingType.DIRECT,
             },
             "science fiction/fantasy/horror": {
-                "fantasy": 50,
-                "horror": 50,
-                "sciencefiction": 50,
+                "fantasy": MappingType.DIRECT,
+                "horror": MappingType.DIRECT,
+                "sciencefiction": MappingType.DIRECT,
             },
             "comedy": {
-                "komedie": 48,
-                "romantische komedie": 40,
-                "sitcoms": 55,
-                "zwarte komedie": 55,
+                "komedie": MappingType.DIRECT,
+                "romantische komedie": MappingType.DIRECT,
+                "sitcoms": MappingType.DIRECT,
+                "zwarte komedie": MappingType.DIRECT,
             },
             "soap/melodrama/folkloric": {
-                "soap": 50,
+                "soap": MappingType.DIRECT,
             },
             "romance": {
-                "romantiek": 60,
+                "romantiek": MappingType.DIRECT,
             },
             "serious/classical/religious/historical movie/drama": {
-                "historisch drama": 50,
-                "klassieke geschiedenis": 50,
+                "historisch drama": MappingType.DIRECT,
             },
             "adult movie/drama": {},
         },
         "News/Current affairs": {  # 0x02
             "news/current affairs": {  # (general)
-                "actualiteit": 10,
-                "actualiteitenprogramma's": 8,
-                "misdaad": 1,
+                "actualiteit": MappingType.DIRECT,
+                "actualiteitenprogramma's": MappingType.DIRECT,
+                "misdaad": MappingType.ONLY,
             },
             "news/weather report": {
-                "nieuws": 60,
-                "weer": 80,
+                "nieuws": MappingType.DIRECT,
+                "weer": MappingType.DIRECT,
             },
             "news magazine": {},
             "documentary": {
-                "documentaire": 78,
+                "documentaire": MappingType.DIRECT,
             },
             "discussion/interview/debate": {
-                "debat": 100,
-                "interview": 100,
+                "debat": MappingType.DIRECT,
+                "interview": MappingType.DIRECT,
             },
         },
         "Show/Game show": {  # 0x03
             "show/game show": {  # (general)
-                "awards": 1,
-                "entertainment": 4,
-                "event": 1,
-                "standup komedie": 30,
-                "veiling": 10,
+                "awards": MappingType.DIRECT,
+                "entertainment": MappingType.ONLY,
+                "event": MappingType.ONLY,
+                "standup komedie": MappingType.DIRECT,
+                "veiling": MappingType.DIRECT,
             },
             "game show/quiz/contest": {
-                "reality-competitie": 50,
-                "spelshow": 62,
+                "reality-competitie": MappingType.DIRECT,
+                "spelshow": MappingType.DIRECT,
             },
             "variety show": {
-                "variété": 40,
+                "variété": MappingType.DIRECT,
             },
             "talk show": {
-                "sporttalkshow": 50,
-                "talkshow": 85,
+                "sporttalkshow": MappingType.DIRECT,
+                "talkshow": MappingType.DIRECT,
             },
         },
         "Sports": {  # 0x04
             "sports": {  # (general)
-                "extreme sporten": 10,
-                "sport": 12,
-                "golf": 50,
-                "stierenvechten": 50,
-                "vliegsport": 10,
-                "wielrennen": 50,
+                "extreme sporten": MappingType.DIRECT,
+                "sport": MappingType.DIRECT,
+                "golf": MappingType.DIRECT,
+                "stierenvechten": MappingType.DIRECT,
+                "vliegsport": MappingType.DIRECT,
+                "wielrennen": MappingType.DIRECT,
             },
             "special events (olympic games, world cup, etc.)": {
-                "multisportevenement": 10,
-                "olympische spelen": 100,
+                "multisportevenement": MappingType.DIRECT,
+                "olympische spelen": MappingType.DIRECT,
             },
             "sports magazines": {},
             "football/soccer": {
-                "american football": 100,
-                "voetbal": 100,
+                "american football": MappingType.DIRECT,
+                "voetbal": MappingType.DIRECT,
             },
             "tennis/squash": {
-                "tennis": 100,
+                "tennis": MappingType.DIRECT,
             },
             "team sports (excluding football)": {
-                "rugby": 80,
-                "rugby league": 100,
+                "rugby": MappingType.DIRECT,
+                "rugby league": MappingType.DIRECT,
             },
             "athletics": {},
             "motor sport": {
-                "motorsport": 100,
+                "motorsport": MappingType.DIRECT,
             },
             "water sport": {
-                "duiken": 50,
-                "varen": 30,
+                "duiken": MappingType.DIRECT,
+                "varen": MappingType.DIRECT,
             },
             "winter sports": {
-                "skiën": 50,
+                "skiën": MappingType.DIRECT,
             },
             "equestrian": {},
             "martial sports": {},
         },
         "Children's/Youth programmes": {  # 0x05
             "children's / youth programs": {  # (general)
-                "kids en familie": 50,
-                "kinderen": 51,
+                "kids en familie": MappingType.DIRECT,
+                "kinderen": MappingType.DIRECT,
             },
             "pre-school children's programs": {},
-            "entertainment programs for 6 to1 4": {},
+            "entertainment programs for 6 to 14": {},
             "entertainment programs for 10 to 16": {},
             "informational/educational/school programs": {},
             "cartoons/puppets": {
-                "animatie": 60,
-                "anime": 60,
+                "animatie": MappingType.DIRECT,
+                "anime": MappingType.DIRECT,
             },
         },
         "Music/Ballet/Dance": {  # 0x06
             "music/ballet/dance": {  # (general)
-                "muziek": 19,
+                "muziek": MappingType.DIRECT,
             },
             "rock/pop": {},
             "serious music/classical music": {},
             "folk/traditional music": {},
             "jazz": {},
             "musical/opera": {
-                "musical": 50,
-                "opera": 50,
+                "musical": MappingType.DIRECT,
+                "opera": MappingType.DIRECT,
             },
             "ballet": {
-                "ballet": 100,
+                "ballet": MappingType.DIRECT,
             },
         },
         "Arts/Culture (without music)": {  # 0x07
             "arts/culture (without music)": {  # (general)
-                "beeldende kunst": 30,
-                "bloemlezing": 10,
-                "kunstnijverheid": 30,
+                "beeldende kunst": MappingType.DIRECT,
+                "bloemlezing": MappingType.DIRECT,
+                "kunstnijverheid": MappingType.DIRECT,
             },
             "performing arts": {
-                "cheerleading": 20,
-                "dans": 80,
-                "podiumkunsten": 75,
-                "theater": 50,
+                "cheerleading": MappingType.DIRECT,
+                "dans": MappingType.DIRECT,
+                "podiumkunsten": MappingType.DIRECT,
+                "theater": MappingType.DIRECT,
             },
             "fine arts": {},
             "religion": {
-                "religie": 50,
+                "religie": MappingType.DIRECT,
             },
             "popular culture/traditional arts": {},
             "literature": {
-                "boeken & literatuur": 101,
+                "boeken & literatuur": MappingType.DIRECT,
             },
             "film/cinema": {},
             "experimental film/video": {},
@@ -208,55 +212,56 @@ class ContentDescriptorTranslator:
             "new media": {},
             "arts magazines/culture magazines": {},
             "fashion": {
-                "mode": 75,
+                "mode": MappingType.DIRECT,
             },
         },
         "Social/Political issues/Economics": {  # 0x08
             "social/political issues/economics": {  # (general)
-                "business & financial": 30,
-                "consumentenprogramma's": 1,
-                "goede doelen": 10,
-                "lhbti": 1,
-                "opvoeden": 5,
-                "politiek": 50,
-                "politieke satire": 1,
-                "recht": 21,
-                "samenleving": 20,
+                "business & financial": MappingType.DIRECT,
+                "consumentenprogramma's": MappingType.ONLY,
+                "goede doelen": MappingType.DIRECT,
+                "lhbti": MappingType.DIRECT,
+                "opvoeden": MappingType.DIRECT,
+                "politiek": MappingType.DIRECT,
+                "politieke satire": MappingType.DIRECT,
+                "recht": MappingType.DIRECT,
+                "samenleving": MappingType.DIRECT,
             },
             "magazines/reports/documentary": {
-                "docudrama": 20,
-                "docusoap": 20,
-                "paranormaal": 1,
+                "docudrama": MappingType.DIRECT,
+                "docusoap": MappingType.DIRECT,
+                "paranormaal": MappingType.DIRECT,
             },
             "economics/social advisory": {
-                "zelfhulp": 30,
+                "zelfhulp": MappingType.DIRECT,
             },
             "remarkable people": {},
         },
         "Education/Science/Factual topics": {  # 0x09
             "education/science/factual topics": {  # (general)
-                "amerikaanse geschiedenis": 20,
-                "biografie": 1,
-                "educatie": 50,
-                "geschiedenis": 20,
-                "militair": 1,
-                "reality": 3,
-                "verzamelen": 1,
-                "wereldgeschiedenis": 20,
-                "wetenschap": 10,
+                "amerikaanse geschiedenis": MappingType.DIRECT,
+                "biografie": MappingType.DIRECT,
+                "educatie": MappingType.DIRECT,
+                "geschiedenis": MappingType.DIRECT,
+                "klassieke geschiedenis": MappingType.DIRECT,
+                "militair": MappingType.ONLY,
+                "reality": MappingType.ONLY,
+                "verzamelen": MappingType.ONLY,
+                "wereldgeschiedenis": MappingType.DIRECT,
+                "wetenschap": MappingType.DIRECT,
             },
             "nature/animals/environment": {
-                "dieren": 75,
-                "landbouw": 10,
-                "natuur": 21,
-                "natuur en milieu": 40,
+                "dieren": MappingType.DIRECT,
+                "landbouw": MappingType.DIRECT,
+                "natuur": MappingType.DIRECT,
+                "natuur en milieu": MappingType.DIRECT,
             },
             "technology/natural sciences": {
-                "computers": 50,
-                "technologie": 50,
+                "computers": MappingType.DIRECT,
+                "technologie": MappingType.DIRECT,
             },
             "medicine/physiology/psychology": {
-                "medisch": 32,
+                "medisch": MappingType.DIRECT,
             },
             "foreign countries/expeditions": {},
             "social/spiritual sciences": {},
@@ -265,33 +270,33 @@ class ContentDescriptorTranslator:
         },
         "Leisure hobbies": {  # 0x0A
             "leisure hobbies": {  # (general)
-                "fietsen": 10,
-                "gamen": 10,
-                "outdoor": 10,
-                "vissen": 1,
+                "fietsen": MappingType.DIRECT,
+                "gamen": MappingType.DIRECT,
+                "outdoor": MappingType.DIRECT,
+                "vissen": MappingType.DIRECT,
             },
             "tourism/travel": {
-                "reizen": 55,
+                "reizen": MappingType.DIRECT,
             },
             "handicraft": {
-                "bouwen en verbouwen": 12,
-                "doe-het-zelf": 10,
+                "bouwen en verbouwen": MappingType.DIRECT,
+                "doe-het-zelf": MappingType.DIRECT,
             },
             "motoring": {
-                "auto's": 12,
-                "motors": 40,
+                "auto's": MappingType.DIRECT,
+                "motors": MappingType.DIRECT,
             },
             "fitness and health": {
-                "exercise": 50,
-                "fit en gezond": 50,
-                "gezondheid": 31,
+                "exercise": MappingType.DIRECT,
+                "fit en gezond": MappingType.DIRECT,
+                "gezondheid": MappingType.DIRECT,
             },
             "cooking": {
-                "culinair": 80,
+                "culinair": MappingType.DIRECT,
             },
             "advertisement / shopping": {},
             "gardening": {
-                "home & garden": 42,
+                "home & garden": MappingType.DIRECT,
             },
         },
     }
@@ -313,63 +318,65 @@ class ContentDescriptorTranslator:
 
         for group_name, group in cls.etsi_map.items():
             for category_name, descriptor_weights in group.items():
-                for descriptor, weight in descriptor_weights.items():
+                for descriptor, mapping_type in descriptor_weights.items():
                     cls.lookup_table[descriptor.lower()] = DescriptorInfo(
-                        category_name=category_name, group_name=group_name, weight=weight
+                        category_name=category_name, group_name=group_name, mapping_type=mapping_type
                     )
 
-    def get_dvb_category(self, program_name: str, categories: List[str]) -> Optional[str]:
+    def get_dvb_categories(self, program_name: str, categories: List[str]) -> List[str]:
         """
-        Do a best guess on the appropriate ETSI DVB category of the program based on the ZiggoGo category list.
-        Uses the weighted etsi_map to determine the most likely description by scoring each of the ZiggoGo categories
-        from the map. First the best matching group(s) is(/are) determined and then the highest scoring final category is
-        selected.
+        Convert the given categories as good as possible to an ETSI DVB compatible category list.
 
-        :param program_name: Currently unused. May be used in the future to better guess the proper category.
+        :param program_name: Currently used for debugging only. May be used in the future to better guess the proper category.
         :param categories: List of ZiggoGo categories assigned to the program
-        :return: The best guess for the ETSI DVB category or None if there is no match
+        :return: List of translated categories. This list may be shorter than the input list
         """
-        group_scores = {}
-        category_scores_by_group = {}
+        group_matches = {}
 
-        # Calculate score(s)
+        # Find matches per group
         for category in categories:
             category = category.lower()
             if category not in self.lookup_table:
                 # Skip unknown category
+                # TODO: Add debug code to print these out
                 continue
 
             descriptor_info = self.lookup_table[category]
-            if descriptor_info.group_name not in group_scores:
-                group_scores[descriptor_info.group_name] = 0
-                category_scores_by_group[descriptor_info.group_name] = {}
-            group_scores[descriptor_info.group_name] += descriptor_info.weight
+            if descriptor_info.group_name not in group_matches:
+                group_matches[descriptor_info.group_name] = {}
 
-            if descriptor_info.category_name not in category_scores_by_group[descriptor_info.group_name]:
-                category_scores_by_group[descriptor_info.group_name][descriptor_info.category_name] = 0
-            category_scores_by_group[descriptor_info.group_name][descriptor_info.category_name] += descriptor_info.weight
+            if descriptor_info.category_name not in group_matches[descriptor_info.group_name]:
+                group_matches[descriptor_info.group_name][descriptor_info.category_name] = descriptor_info.mapping_type
+            else:
+                # Add the 'smallest' value (the highest match type)
+                group_matches[descriptor_info.group_name][descriptor_info.category_name] = MappingType(
+                    min(
+                        group_matches[descriptor_info.group_name][descriptor_info.category_name].value,
+                        descriptor_info.mapping_type.value,
+                    )
+                )
 
-        if not group_scores:
+        if not group_matches:
             # No matches found at all, give up
-            return None
+            return []
 
-        # Create candidate list out of the highest scoring group(s)
-        group_high_score = max(group_scores.values())
-        candidate_list = {}
-        for group_name, score in group_scores.items():
-            if score == group_high_score:
-                candidate_list.update(category_scores_by_group[group_name])
-
-        # Select highest candidate(s)
+        # Copy out mappings
         finalists = []
-        candidate_high_score = max(candidate_list.values())
-        for category_name, score in candidate_list.items():
-            if score == candidate_high_score:
-                finalists.append(category_name)
+        for group, dvb_categories in group_matches.items():
+            group_finalists = [
+                category_name for category_name, mapping_type in dvb_categories.items() if mapping_type is MappingType.DIRECT
+            ]
+            if not group_finalists:
+                # No direct members, fall back to the 'GROUP' mappings
+                group_finalists = [
+                    category_name for category_name, mapping_type in dvb_categories.items() if mapping_type is MappingType.GROUP
+                ]
+            finalists.extend(group_finalists)
 
-        # TODO: Make debug code conditional on debug flag
-        if len(finalists) > 1:
-            logging.warning(f"{tuple(sorted(categories))} - {sorted(finalists)}: {program_name}")
+        if not finalists:
+            # No mappings found at all, fall back to the 'ONLY' mappings
+            for dvb_categories in group_matches.values():
+                for category_name in dvb_categories.keys():
+                    finalists.append(category_name)
 
-        # Pick the first result
-        return finalists[0]
+        return finalists
