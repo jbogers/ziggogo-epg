@@ -110,10 +110,10 @@ class XMLTVFileIo(TVSystemIo):
         logging.info(f"Reading known channel list from '{self._channel_list_filename}'...")
 
         try:
-            with open(self._channel_list_filename, "r") as f:
+            with open(self._channel_list_filename, "rb") as f:
                 channellist = []
                 for line in f:
-                    channel = line.strip()
+                    channel = line.decode("utf-8").strip()
                     if channel:
                         channellist.append(channel)
 
@@ -135,7 +135,7 @@ class XMLTVFileIo(TVSystemIo):
 
 
 class ChannelFileIo(XMLTVFileIo):
-    """Class used to only write XMLTV file and take a manually defined cannel list"""
+    """Class used to only write XMLTV file and take a manually defined channel list"""
 
     def __init__(self, channels: List, xmltv_filename="ziggogo.xml"):
         """Initialize the ChannelFileIo class"""

@@ -1,0 +1,11 @@
+# URL's to grab the EPG from
+urls:
+    # epg_channel_list: Fixed URL that grabs the channel overview
+    epg_channel_list: "https://prod.spark.ziggogo.tv/eng/web/linear-service/v2/channels?cityId=65535&language=nl&productClass=Orion-DASH"
+    # epg_segment: URL where a segment with the program overview is loaded from. Must have exactly 1 '{}' entry where the segment ID is filed in.
+    epg_segment: "https://static.spark.ziggogo.tv/eng/web/epg-service-lite/nl/nl/events/segments/{}"
+    # epg_detail: URL where the details for each program are grabbed from. Must have exactly 1 '{}' entry where the program ID is filed in.
+    epg_detail: "https://prod.spark.ziggogo.tv/eng/web/linear-service/v2/replayEvent/{}?returnLinearContent=true&language=nl"
+
+# Timezone that should be used for the XMLTV file
+timezone: "Europe/Amsterdam"

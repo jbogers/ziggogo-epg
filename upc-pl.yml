@@ -1,0 +1,11 @@
+# URL's to grab the EPG from
+urls:
+    # epg_channel_list: Fixed URL that grabs the channel overview
+    epg_channel_list: "https://prod.spark.upctv.pl/pol/web/linear-service/v2/channels?cityId=1&language=pl&productClass=Orion-DASH"
+    # epg_segment: URL where a segment with the program overview is loaded from. Must have exactly 1 '{}' entry where the segment ID is filed in.
+    epg_segment: "https://static.spark.upctv.pl/pol/web/epg-service-lite/pl/pl/events/segments/{}"
+    # epg_detail: URL where the details for each program are grabbed from. Must have exactly 1 '{}' entry where the program ID is filed in.
+    epg_detail: "https://prod.spark.upctv.pl/pol/web/linear-service/v2/replayEvent/{}?returnLinearContent=true&language=pl"
+
+# Timezone that should be used for the XMLTV file
+timezone: "Europe/Warsaw"
