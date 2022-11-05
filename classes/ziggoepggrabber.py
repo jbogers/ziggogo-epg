@@ -10,6 +10,7 @@ import pytz
 import requests
 import sqlite3
 import time
+import yaml
 
 from typing import Iterable, List
 
@@ -47,7 +48,12 @@ class ZiggoGoEpgGrabber:
     """Grabber for the EPG hosted by Ziggo on ziggogo.tv"""
 
     def __init__(
-        self, tv_system_io: TVSystemIo, scan_days=14, timezone="Europe/Amsterdam", database_file="ziggogoepg_cache.sqlite3"
+        self,
+        tv_system_io: TVSystemIo,
+        scan_days=14,
+        configuration_file="ziggo-nl.yml",
+        database_file="ziggogoepg_cache.sqlite3",
+        timezone=None,
     ):
         """
         Initialize ZiggoGoEpgGrabber
@@ -59,14 +65,28 @@ class ZiggoGoEpgGrabber:
         """
         self._tv_system_io = tv_system_io
 
-        # Set up URL's statically
-        self._epg_channel_list_url = (
-            "https://prod.spark.ziggogo.tv/eng/web/linear-service/v2/channels?cityId=65535&language=nl&productClass=Orion-DASH"
-        )
-        self._epg_segment_url = "https://static.spark.ziggogo.tv/eng/web/epg-service-lite/nl/nl/events/segments/{}"
-        self._epg_detail_url = (
-            "https://prod.spark.ziggogo.tv/eng/web/linear-service/v2/replayEvent/{}?returnLinearContent=true&language=nl"
-        )
+        # Load URL's and timezone from configuration file
+        try:
+            with open(configuration_file, "r") as f:
+                configuration = yaml.safe_load(f)
+        except OSError:
+            raise GrabException(f"Configuration file {configuration_file} could not be found or opened.")
+        except yaml.YAMLError:
+            raise GrabException(f"Configuration file {configuration_file} is not a valid YAML file.")
+
+        try:
+            self._epg_channel_list_url = configuration["urls"]["epg_channel_list"]
+            self._epg_segment_url = configuration["urls"]["epg_segment"]
+            self._epg_detail_url = configuration["urls"]["epg_detail"]
+        except KeyError:
+            raise GrabException(f"Configuration file {configuration_file} is missing the settings for the urls to grab")
+
+        # Use timezone from configuration file if none was given
+        if timezone is None:
+            try:
+                timezone = configuration["timezone"]
+            except KeyError:
+                raise GrabException(f"Configuration file {configuration_file} is missing the timezone setting.")
 
         self._grab_start_time = None
 
@@ -114,8 +134,10 @@ class ZiggoGoEpgGrabber:
 
     def __del__(self):
         """Cleanup"""
-        self._dbcur.close()
-        self._db.close()
+        if hasattr(self, "_dbcur"):
+            self._dbcur.close()
+        if hasattr(self, "_db"):
+            self._db.close()
 
     def grab(self, generate_only=False):
         """Perform EPG grab. Raises GrabException on error."""

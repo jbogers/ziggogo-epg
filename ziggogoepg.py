@@ -21,6 +21,9 @@ def main():
     logging.info("Starting ZiggoGo EPG")
 
     parser = argparse.ArgumentParser(description="ZiggoGo EPG grabber", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        "-s", "--configuration", default="ziggo-nl", type=str, help="configuration to use", metavar="CONFIGURATION"
+    )
     parser.add_argument("-n", "--scan-days", default=14, type=int, help="number of days to grab", metavar="DAYS")
     parser.add_argument("-f", "--file-mode", action="store_true", help="use file mode instead of TVHeadend mode")
 
@@ -75,7 +78,7 @@ def main():
 
     tweak_arg_group = parser.add_argument_group("tweaks", description="Finetuning for advanced users")
     tweak_arg_group.add_argument(
-        "--timezone", default="Europe/Amsterdam", type=str, help="timezone to use in the XMLTV file", metavar="TZ"
+        "--timezone", default=None, type=str, help="override timezone to use in the XMLTV file", metavar="TZ"
     )
     tweak_arg_group.add_argument(
         "--database-location", default=".", type=str, help="path where the cache database will be created", metavar="PATH"
@@ -85,6 +88,8 @@ def main():
     args = parser.parse_args()
 
     database_file = os.path.normpath(os.path.join(args.database_location, "ziggogoepg_cache.sqlite3"))
+    module_location = os.path.dirname(os.path.abspath(__file__))
+    configuration_file = os.path.normpath(os.path.join(module_location, f"{args.configuration}.yml"))
 
     if args.file_mode:
         if args.channels:
@@ -101,9 +106,17 @@ def main():
             xmltv_socket_path=args.tvh_socket,
         )
 
-    grabber = ZiggoGoEpgGrabber(
-        tv_system_io=tv_system_io, scan_days=args.scan_days, timezone=args.timezone, database_file=database_file
-    )
+    try:
+        grabber = ZiggoGoEpgGrabber(
+            tv_system_io=tv_system_io,
+            scan_days=args.scan_days,
+            configuration_file=configuration_file,
+            database_file=database_file,
+            timezone=args.timezone,
+        )
+    except GrabException as ex:
+        logging.error(str(ex))
+        return 1
 
     if args.write_channel_list:
         logging.info(f"Writing channel list to '{args.channel_file}'.")
@@ -114,9 +127,9 @@ def main():
             return 1
 
         try:
-            with open(args.channel_file, "w") as f:
+            with open(args.channel_file, "wb") as f:
                 for channel in channels:
-                    f.write(f"{channel['name']}\n")
+                    f.write(f"{channel['name']}\n".encode("utf-8"))
         except OSError:
             raise TVSystemIoException(
                 f"Error writing channel list to '{args.channel_file}'. Is the path correct and is it writable?"
