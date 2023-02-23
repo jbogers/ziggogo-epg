@@ -72,7 +72,7 @@ The following options are supported in standalone file mode:
   The option can be repeated multiple times to specify multiple channels (but in that case, using the `--channel-file` is
   _highly_ recommended).
 - `--write-channel-list`: If given the currently known channels are retrieved from the ZiggoGo servers and are output to the file
-- specified by the `--channel-file` option. No EPG data will be grabbed and no XMLTV file will be generated. This is option is
+  specified by the `--channel-file` option. No EPG data will be grabbed and no XMLTV file will be generated. This is option is
   useful when first starting with the standalone file mode as this gives a known-good channels file to start your configuration
   with. It is recommended to first edit this file, removing any unwanted channels, before starting normal use of the
   standalne file mode. **Warning**: Using this option will overwrite any existing file at the location of `--channel-file`!
