@@ -12,6 +12,7 @@ import sqlite3
 import time
 import yaml
 
+from requests.adapters import HTTPAdapter, Retry
 from typing import Iterable, List
 
 from classes.tvsystemio import TVSystemIo
@@ -235,13 +236,17 @@ class ZiggoGoEpgGrabber:
         segment_datetime = datetime.datetime(year=grab_start.year, month=grab_start.month, day=grab_start.day)
         end_datetime = segment_datetime + datetime.timedelta(days=self._scan_days)
 
+        # Set up session with automatic retries
         session = requests.Session()
+        retries = Retry(total=10, backoff_factor=0.1)
+        session.mount('https://', HTTPAdapter(max_retries=retries))
+
         while segment_datetime < end_datetime:
             segment_code = segment_datetime.strftime("%Y%m%d%H%M%S")
             logging.info(f"  Segment: {segment_code}")
 
             # Expected to fail at some point
-            with session.get(self._epg_segment_url.format(segment_code)) as r:
+            with session.get(self._epg_segment_url.format(segment_code), timeout=5) as r:
                 if r.status_code == 404:
                     # No more segment data, stop grabbing
                     logging.info(f"No more EPG data found at {segment_datetime}, stopping scan.")
@@ -276,26 +281,31 @@ class ZiggoGoEpgGrabber:
                 programmeupdate = []
                 for event in entry["events"]:
 
-                    programmeupdate.append(
-                        {
-                            "id": event["id"],
-                            "channelid": entry["channelId"],
-                            "last_update": self._grab_start_time,
-                            "title": event["title"],
-                            "starttime": datetime.datetime.fromtimestamp(event["startTime"], self._timezone).strftime(
-                                "%Y%m%d%H%M%S %z"
-                            ),
-                            "endtime": datetime.datetime.fromtimestamp(event["endTime"], self._timezone).strftime(
-                                "%Y%m%d%H%M%S %z"
-                            ),
-                        }
-                    )
+                    try:
+                        programmeupdate.append(
+                            {
+                                "id": event["id"],
+                                "channelid": entry["channelId"],
+                                "last_update": self._grab_start_time,
+                                "title": event["title"],
+                                "starttime": datetime.datetime.fromtimestamp(event["startTime"], self._timezone).strftime(
+                                    "%Y%m%d%H%M%S %z"
+                                ),
+                                "endtime": datetime.datetime.fromtimestamp(event["endTime"], self._timezone).strftime(
+                                    "%Y%m%d%H%M%S %z"
+                                ),
+                            }
+                        )
+                    except KeyError:
+                        # Programme with missing data, skip as we can never format this into a functional entity.
+                        pass
 
-                self._dbcur.executemany(
-                    "INSERT OR REPLACE INTO programmes (id, channelid, last_update, title, starttime, endtime)"
-                    "VALUES (:id, :channelid, :last_update, :title, :starttime, :endtime)",
-                    programmeupdate,
-                )
+                if programmeupdate:
+                    self._dbcur.executemany(
+                        "INSERT OR REPLACE INTO programmes (id, channelid, last_update, title, starttime, endtime)"
+                        "VALUES (:id, :channelid, :last_update, :title, :starttime, :endtime)",
+                        programmeupdate,
+                    )
 
             # Commit data per segment to be more robust against script failure
             self._db.commit()
@@ -320,13 +330,17 @@ class ZiggoGoEpgGrabber:
         programmecounter = 0
         totalcount = len(missing_programmes_rows)
         detailsupdate = []
+
+        # Set up session with automatic retries
         session = requests.Session()
+        retries = Retry(total=10, backoff_factor=0.1)
+        session.mount('https://', HTTPAdapter(max_retries=retries))
 
         for row in missing_programmes_rows:
             programmecounter += 1
             id = row[0]
 
-            with session.get(self._epg_detail_url.format(id)) as r:
+            with session.get(self._epg_detail_url.format(id), timeout=5) as r:
                 if r.status_code != 200:
                     # Programme not found, skip
                     continue
